@@ -19,7 +19,7 @@ class GetTheVotes(scrapy.Spider):
     def start_requests(self):
 
         for congress_sess in range(self.congress_session, self.last_congress+1):
-            yield scrapy.Request(f'https://www.govtrack.us/congress/votes?session={congress_sess}&sort=-created&page=1&faceting=false&allow_redirect=true&do_search=1', callback=self.parse, cb_kwargs=dict(congress_session = congress_sess))
+            yield scrapy.Request(f'https://www.govtrack.us/congress/votes?session={congress_sess}&sort=-created&faceting=false&allow_redirect=true&do_search=1&page=1', callback=self.parse, cb_kwargs=dict(congress_session = congress_sess))
 
 
     def parse(self, response, congress_session=congress_session):
@@ -30,12 +30,15 @@ class GetTheVotes(scrapy.Spider):
             from scrapy.shell import inspect_response
             inspect_response(response, self)
 
-        if data['page'] <= data['total']:
+        if data['page'] < data['num_pages']:
             self._parse_links(data['results'])
-            next_page_url = response.url[:-1] + str( data['page'] + 1 )
-            print(f'----{next_page_url}-----')
-            yield scrapy.Request(next_page_url, callback=self.parse, cb_kwargs=dict(congress_session=congress_session))
-        else:
+
+            for page in range(data['page']+1, data['num_pages']+1):
+                next_page_url = response.url[:response.url.rfind('=')] + '=' + str(page)
+                yield scrapy.Request(next_page_url, callback=self.parse, cb_kwargs=dict(congress_session=congress_session))
+
+        elif data['page'] == data['num_pages']:
+            self._parse_links(data['results'])
             return None
 
 
